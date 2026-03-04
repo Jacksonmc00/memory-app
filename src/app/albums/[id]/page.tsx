@@ -16,24 +16,34 @@ const s3Client = new S3Client({
   forcePathStyle: true,
 });
 
-export default async function AlbumPage({ params }: { params: { id: string } }) {
+// In Next.js 15, params is a Promise
+export default async function AlbumPage({ 
+  params 
+}: { 
+  params: Promise<{ id: string }> 
+}) {
+  const { id } = await params;
   const cookieStore = await cookies()
+  
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { cookies: { getAll: () => cookieStore.getAll() } }
   )
 
-  const { id } = params
-
   // 1. Fetch Album metadata
-  const { data: album } = await supabase
+  const { data: album, error: albumError } = await supabase
     .from('albums')
     .select('*')
     .eq('id', id)
     .single()
 
-  if (!album) return notFound()
+  // Debugging: If album is missing, check Vercel Logs for these:
+  if (albumError) console.error("Supabase Album Error:", albumError.message);
+  if (!album) {
+    console.log(`No album found for ID: ${id}`);
+    return notFound();
+  }
 
   // 2. Fetch all memories associated with this album
   const { data: memories } = await supabase
@@ -44,24 +54,29 @@ export default async function AlbumPage({ params }: { params: { id: string } }) 
 
   // 3. Generate Signed URLs for private ThinkOn content
   const memoriesWithUrls = await Promise.all((memories || []).map(async (memory) => {
-    // Generate Photo URL
-    const photoCommand = new GetObjectCommand({
-      Bucket: process.env.THINKON_BUCKET_NAME,
-      Key: memory.storage_key,
-    })
-    const photoUrl = await getSignedUrl(s3Client, photoCommand, { expiresIn: 3600 })
-
-    // Generate Audio URL (if it exists)
-    let audioUrl = null
-    if (memory.audio_key) {
-      const audioCommand = new GetObjectCommand({
+    try {
+      // Generate Photo URL
+      const photoCommand = new GetObjectCommand({
         Bucket: process.env.THINKON_BUCKET_NAME,
-        Key: memory.audio_key,
+        Key: memory.storage_key,
       })
-      audioUrl = await getSignedUrl(s3Client, audioCommand, { expiresIn: 3600 })
-    }
+      const photoUrl = await getSignedUrl(s3Client, photoCommand, { expiresIn: 3600 })
 
-    return { ...memory, photoUrl, audioUrl }
+      // Generate Audio URL (if it exists)
+      let audioUrl = null
+      if (memory.audio_key) {
+        const audioCommand = new GetObjectCommand({
+          Bucket: process.env.THINKON_BUCKET_NAME,
+          Key: memory.audio_key,
+        })
+        audioUrl = await getSignedUrl(s3Client, audioCommand, { expiresIn: 3600 })
+      }
+
+      return { ...memory, photoUrl, audioUrl }
+    } catch (s3Err) {
+      console.error("S3 Link Generation Error:", s3Err);
+      return { ...memory, photoUrl: '', audioUrl: null };
+    }
   }))
 
   return (
@@ -104,11 +119,17 @@ export default async function AlbumPage({ params }: { params: { id: string } }) 
               >
                 {/* Image Container */}
                 <div className="relative overflow-hidden aspect-auto">
-                  <img 
-                    src={memory.photoUrl} 
-                    alt={memory.title}
-                    className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
+                  {memory.photoUrl ? (
+                    <img 
+                      src={memory.photoUrl} 
+                      alt={memory.title}
+                      className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                  ) : (
+                    <div className="aspect-video bg-gray-100 flex items-center justify-center text-gray-400 text-xs font-bold uppercase tracking-widest">
+                      Image Unavailable
+                    </div>
+                  )}
                 </div>
 
                 {/* Content Section */}

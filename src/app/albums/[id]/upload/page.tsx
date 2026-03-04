@@ -1,13 +1,12 @@
 'use client'
 import { useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 
 export default function UploadMemoryPage() {
   const { id: albumId } = useParams()
   const router = useRouter()
   
-  // State for files and recording
   const [file, setFile] = useState<File | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
@@ -15,58 +14,59 @@ export default function UploadMemoryPage() {
   
   const mediaRecorder = useRef<MediaRecorder | null>(null)
 
-  // --- Audio Recording Logic ---
   const startRecording = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    mediaRecorder.current = new MediaRecorder(stream)
-    const chunks: any[] = []
-    mediaRecorder.current.ondataavailable = (e) => chunks.push(e.data)
-    mediaRecorder.current.onstop = () => setAudioBlob(new Blob(chunks, { type: 'audio/webm' }))
-    mediaRecorder.current.start()
-    setIsRecording(true)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaRecorder.current = new MediaRecorder(stream)
+      const chunks: Blob[] = []
+      mediaRecorder.current.ondataavailable = (e) => chunks.push(e.data)
+      mediaRecorder.current.onstop = () => setAudioBlob(new Blob(chunks, { type: 'audio/webm' }))
+      mediaRecorder.current.start()
+      setIsRecording(true)
+    } catch (err) {
+      alert("Mic access is required for audio stories.")
+    }
   }
 
   const stopRecording = () => {
     mediaRecorder.current?.stop()
     setIsRecording(false)
+    mediaRecorder.current?.stream.getTracks().forEach(track => track.stop())
   }
 
-  // --- The "ThinkOn" Upload Handshake ---
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!file) return alert('Please select a photo first')
     setIsUploading(true)
 
     try {
-      // 1. Get a Presigned URL from our Server Action
-      const res = await fetch('/api/upload-url', {
-        method: 'POST',
-        body: JSON.stringify({ 
-          fileName: file.name, 
-          contentType: file.type,
-          albumId 
-        })
-      })
-      const { url, key } = await res.json()
+      // We use FormData to send the file to our PROXY route
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('albumId', albumId as string)
+      formData.append('title', file.name)
+      
+      if (audioBlob) {
+        formData.append('audio', audioBlob, 'story.webm')
+      }
 
-      // 2. Upload DIRECTLY to ThinkOn S3
-      await fetch(url, {
-        method: 'PUT',
-        body: file,
-        headers: { 'Content-Type': file.type }
+      // THIS IS THE KEY CHANGE: 
+      // Pointing to /api/memories/upload (the folder we renamed/created)
+      const res = await fetch('/api/memories/upload', {
+        method: 'POST',
+        body: formData,
       })
 
-      // 3. Save the record to Supabase
-      // (We'll create a simple API route or action for this next)
-      await fetch('/api/memories/create', {
-        method: 'POST',
-        body: JSON.stringify({ albumId, storageKey: key, title: file.name })
-      })
+      if (!res.ok) {
+        const errorData = await res.json()
+        throw new Error(errorData.error || 'Upload failed')
+      }
 
       router.push(`/albums/${albumId}`)
-    } catch (err) {
+      router.refresh()
+    } catch (err: any) {
       console.error(err)
-      alert('Upload failed. Check your ThinkOn CORS settings.')
+      alert(`Upload failed: ${err.message}`)
     } finally {
       setIsUploading(false)
     }
@@ -82,7 +82,6 @@ export default function UploadMemoryPage() {
         <h1 className="text-3xl font-black italic mb-8">Add a Memory</h1>
         
         <form onSubmit={handleUpload} className="space-y-8">
-          {/* Photo Picker */}
           <div className="space-y-2">
             <label className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Step 1: The Visual</label>
             <input 
@@ -93,7 +92,6 @@ export default function UploadMemoryPage() {
             />
           </div>
 
-          {/* Audio Recorder UI */}
           <div className="space-y-2">
             <label className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Step 2: The Story (Optional)</label>
             <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl">
@@ -107,6 +105,7 @@ export default function UploadMemoryPage() {
           </div>
 
           <button 
+            type="submit"
             disabled={isUploading}
             className={`w-full py-4 rounded-2xl font-black text-white transition-all ${isUploading ? 'bg-gray-300' : 'bg-black hover:bg-gray-800'}`}
           >

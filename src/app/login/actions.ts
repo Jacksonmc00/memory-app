@@ -1,10 +1,29 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+
+async function getSupabase() {
+  const cookieStore = await cookies()
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: (cookiesToSet) => {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        },
+      },
+    }
+  )
+}
 
 export async function login(formData: FormData) {
+  const supabase = await getSupabase()
   const email = formData.get('email') as string
   const password = formData.get('password') as string
 
@@ -14,29 +33,32 @@ export async function login(formData: FormData) {
   })
 
   if (error) {
-    redirect('/login?error=Could not authenticate user')
+    redirect(`/login?error=${encodeURIComponent(error.message)}`)
   }
 
-  revalidatePath('/', 'layout')
   redirect('/')
 }
 
 export async function signup(formData: FormData) {
+  const supabase = await getSupabase()
   const email = formData.get('email') as string
   const password = formData.get('password') as string
 
-  const { error } = await supabase.auth.signUp({
+  const { error, data } = await supabase.auth.signUp({
     email,
     password,
-    options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-    },
   })
 
   if (error) {
-    redirect('/login?error=Could not initialize signup')
+    redirect(`/login?error=${encodeURIComponent(error.message)}`)
   }
 
-  revalidatePath('/', 'layout')
-  redirect('/login?message=Check your email to continue')
+  // Because "Confirm Email" is OFF, 'data.session' will exist immediately.
+  // We redirect straight to the dashboard.
+  if (data.session) {
+    redirect('/')
+  } else {
+    // Fallback in case the Supabase toggle didn't save correctly
+    redirect('/login?message=Check your email to confirm your account')
+  }
 }

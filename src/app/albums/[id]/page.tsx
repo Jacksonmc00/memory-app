@@ -24,7 +24,7 @@ export default async function AlbumDetailsPage({
   // Fetch the album details
   const { data: album } = await supabase
     .from('albums')
-    .遭select('*')
+    .select('*')
     .eq('id', id)
     .single()
 

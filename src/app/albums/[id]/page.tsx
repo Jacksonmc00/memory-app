@@ -44,81 +44,55 @@ export default async function AlbumPage({
     try {
       const photoCommand = new GetObjectCommand({ Bucket: process.env.THINKON_BUCKET_NAME, Key: memory.storage_key })
       const photoUrl = await getSignedUrl(s3Client, photoCommand, { expiresIn: 3600 })
-
-      let audioUrl = null
-      if (memory.audio_key) {
-        const audioCommand = new GetObjectCommand({ Bucket: process.env.THINKON_BUCKET_NAME, Key: memory.audio_key })
-        audioUrl = await getSignedUrl(s3Client, audioCommand, { expiresIn: 3600 })
-      }
-      return { ...memory, photoUrl, audioUrl }
+      return { ...memory, photoUrl }
     } catch (err) {
-      return { ...memory, photoUrl: '', audioUrl: null }
+      return { ...memory, photoUrl: '' }
     }
   }))
 
   return (
-    <main className="min-h-screen bg-[#fafafa]">
-      {/* 1. Glassmorphism Navigation */}
-      <nav className="sticky top-0 z-50 w-full bg-white/70 backdrop-blur-xl border-b border-gray-100/50">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
-          <Link href="/" className="group flex items-center gap-2">
-            <span className="text-[10px] font-black tracking-[0.3em] text-gray-400 group-hover:text-black transition-colors uppercase">
-              ← Return to Dashboard
-            </span>
+    <main className="min-h-screen bg-[#FDFCF8] text-[#2D2926]">
+      {/* 1. Soft, Floating Navigation */}
+      <nav className="sticky top-0 z-50 w-full bg-[#FDFCF8]/80 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-6 h-24 flex justify-between items-center">
+          <Link href="/" className="text-xs font-bold tracking-widest text-[#8C867A] hover:text-[#2D2926] transition-colors uppercase">
+            ← Your Archives
           </Link>
           <AlbumSettings album={album} memories={memories || []} />
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 py-16 md:py-24">
-        {/* 2. Editorial Header Section */}
-        <header className="relative mb-24">
-          <div className="flex flex-col gap-6">
-            <div className="flex items-center gap-4">
-              <span className="h-[1px] w-12 bg-black"></span>
-              <span className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400">
-                Established 2026 // Private Archive
-              </span>
-            </div>
-            
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-              <div className="space-y-6">
-                <h1 className="text-6xl md:text-9xl font-black italic tracking-tighter uppercase text-gray-900 leading-[0.85] animate-in fade-in slide-in-from-bottom-4 duration-700">
-                  {album.title}
-                </h1>
-                <p className="text-gray-500 text-lg font-medium max-w-xl border-l-2 border-gray-100 pl-6 ml-1 leading-relaxed">
-                  {album.description || "A collection of moments captured in time, preserved in the Canadian cloud."}
-                </p>
-              </div>
+      <div className="max-w-5xl mx-auto px-6 py-12">
+        {/* 2. Natural, Warm Header */}
+        <header className="text-center mb-20 space-y-6">
+          <div className="flex flex-col items-center">
+            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#A69F92] mb-4">
+              Est. 2026 // Russell, Ontario
+            </span>
+            <h1 className="text-5xl md:text-7xl font-serif italic text-[#2D2926] leading-tight">
+              {album.title}
+            </h1>
+            <div className="w-12 h-[1px] bg-[#D9D4CC] my-8"></div>
+            <p className="text-[#6B655B] text-lg font-medium max-w-xl italic leading-relaxed">
+              {album.description || "A collection of shared stories and quiet moments."}
+            </p>
+          </div>
 
-              <Link 
-                href={`/albums/${id}/upload`}
-                className="group relative inline-flex items-center justify-center bg-black text-white px-10 py-5 rounded-2xl font-bold transition-all hover:pr-14 active:scale-95 shadow-2xl shadow-gray-200"
-              >
-                <span>ADD TO ARCHIVE</span>
-                <span className="absolute right-6 opacity-0 group-hover:opacity-100 transition-all">→</span>
-              </Link>
-            </div>
+          <div className="pt-8">
+            <Link 
+              href={`/albums/${id}/upload`}
+              className="inline-flex items-center justify-center border border-[#D9D4CC] text-[#2D2926] px-10 py-4 rounded-full font-bold hover:bg-[#2D2926] hover:text-white transition-all duration-300"
+            >
+              Add a new memory
+            </Link>
           </div>
         </header>
 
-        {/* 3. Refined Masonry Grid */}
-        <div className="columns-1 sm:columns-2 lg:columns-3 gap-10 space-y-10">
-          {memoriesWithUrls.length > 0 ? (
-            memoriesWithUrls.map((memory) => (
-              <MemoryCard key={memory.id} memory={memory} />
-            ))
-          ) : (
-            <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border border-gray-100 shadow-sm">
-              <div className="text-4xl mb-4">🎞️</div>
-              <p className="text-gray-400 font-bold uppercase tracking-widest italic text-sm">
-                This archive is currently empty.
-              </p>
-              <Link href={`/albums/${id}/upload`} className="mt-6 inline-block text-black text-xs font-black border-b-2 border-black pb-1 hover:text-gray-400 hover:border-gray-400 transition">
-                Create the first record
-              </Link>
-            </div>
-          )}
+        {/* 3. The Gallery Grid */}
+        <div className="columns-1 md:columns-2 gap-12 space-y-12">
+          {memoriesWithUrls.map((memory) => (
+            <MemoryCard key={memory.id} memory={memory} />
+          ))}
         </div>
       </div>
     </main>

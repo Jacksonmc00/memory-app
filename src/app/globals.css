@@ -1,15 +1,23 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root {
-  --foreground-rgb: 45, 41, 38; /* Soft Charcoal */
-  --background-start-rgb: 253, 252, 248; /* Eggshell */
-  --background-end-rgb: 253, 252, 248;
+@theme {
+  /* This maps your Google Fonts variables to Tailwind classes */
+  --font-sans: var(--font-sans);
+  --serif: var(--font-serif);
+
+  /* This sets our 'Family' color palette */
+  --color-linen: #FDFCF8;
+  --color-charcoal: #2D2926;
+  --color-taupe: #A69F92;
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-start-rgb));
-  -webkit-font-smoothing: antialiased;
+/* Base Styles */
+@layer base {
+  body {
+    @apply bg-linen text-charcoal antialiased font-sans;
+  }
+
+  h1, h2, h3, .font-serif {
+    @apply font-[serif] italic;
+  }
 }

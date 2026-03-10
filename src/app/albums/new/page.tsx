@@ -1,23 +1,27 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 
-export default async function NewAlbumPage() {
+export default async function NewAlbumPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ title?: string; desc?: string }>
+}) {
+  // Grab the pre-filled data from the Quick Start templates
+  const { title: defaultTitle, desc: defaultDesc } = await searchParams;
+
   async function createAlbum(formData: FormData) {
     'use server'
     
-    // In Next.js 16, we await the cookie store
     const cookieStore = await cookies()
-    
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          getAll() {
-            return cookieStore.getAll()
-          },
-          setAll(cookiesToSet) {
+          getAll: () => cookieStore.getAll(),
+          setAll: (cookiesToSet) => {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             )
@@ -27,10 +31,7 @@ export default async function NewAlbumPage() {
     )
 
     const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      redirect('/login')
-    }
+    if (!user) redirect('/login')
 
     const title = formData.get('title') as string
     const description = formData.get('description') as string
@@ -52,43 +53,60 @@ export default async function NewAlbumPage() {
   }
 
   return (
-    <main className="max-w-2xl mx-auto p-8 min-h-screen flex flex-col justify-center">
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-        <h1 className="text-3xl font-bold mb-8 text-gray-900">Create New Album</h1>
-        <form action={createAlbum} className="flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <label htmlFor="title" className="font-semibold text-gray-700">Album Title</label>
+    <main className="min-h-screen bg-linen p-8 md:p-24 flex items-center justify-center">
+      <div className="w-full max-w-xl bg-white rounded-[3rem] p-12 shadow-[0_20px_50px_rgba(166,159,146,0.1)]">
+        
+        <header className="mb-10">
+          <h1 className="text-4xl font-serif italic text-charcoal mb-2">Start New Archive</h1>
+          <p className="text-sm font-medium text-taupe italic">
+            {defaultTitle ? "Guided by your selected template" : "Create a space for your records"}
+          </p>
+        </header>
+
+        <form action={createAlbum} className="space-y-8">
+          <div className="space-y-2">
+            <label htmlFor="title" className="text-[10px] font-bold uppercase tracking-widest text-taupe">
+              Archive Name
+            </label>
             <input
               id="title"
               name="title"
               type="text"
               required
-              className="border rounded-xl p-3 bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition"
-              placeholder="e.g., Summer 2026 Trapping Trip"
+              defaultValue={defaultTitle || ""}
+              className="w-full bg-linen/30 border-none rounded-2xl p-4 font-serif italic text-xl text-charcoal focus:ring-1 focus:ring-taupe/30 outline-none transition-all"
+              placeholder="e.g. Seasonal Observations"
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label htmlFor="description" className="font-semibold text-gray-700">Description</label>
+          <div className="space-y-2">
+            <label htmlFor="description" className="text-[10px] font-bold uppercase tracking-widest text-taupe">
+              Description
+            </label>
             <textarea
               id="description"
               name="description"
               rows={4}
-              className="border rounded-xl p-3 bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition"
-              placeholder="What is this album about?"
+              defaultValue={defaultDesc || ""}
+              className="w-full bg-linen/30 border-none rounded-2xl p-4 font-medium text-charcoal focus:ring-1 focus:ring-taupe/30 outline-none transition-all"
+              placeholder="What stories live here?"
             />
           </div>
 
-          <div className="flex gap-4 pt-4">
+          <div className="flex flex-col gap-4 pt-4">
             <button
               type="submit"
-              className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200"
+              className="w-full bg-charcoal text-white font-bold py-5 rounded-2xl hover:bg-taupe transition-all duration-500 shadow-xl shadow-taupe/10 active:scale-[0.98]"
             >
-              Create Album
+              CREATE ARCHIVE
             </button>
-            <a href="/" className="px-6 py-3 border rounded-xl hover:bg-gray-50 transition text-gray-600 font-medium">
+            
+            <Link 
+              href="/" 
+              className="text-center text-[10px] font-bold tracking-widest text-taupe uppercase hover:text-charcoal transition-colors"
+            >
               Cancel
-            </a>
+            </Link>
           </div>
         </form>
       </div>

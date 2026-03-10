@@ -27,7 +27,8 @@ export async function POST(request: Request) {
   try {
     const { albumId, memories } = await request.json();
 
-    // 1. Wipe all associated files from ThinkOn
+    // 1. Wipe all associated files from ThinkOn Storage
+    // We loop through the memories passed from the frontend
     for (const memory of memories) {
       await s3Client.send(new DeleteObjectCommand({
         Bucket: process.env.THINKON_BUCKET_NAME,
@@ -42,7 +43,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // 2. Delete the Album (RLS and foreign keys handle the memory row deletion in DB)
+    // 2. Delete the Album from Supabase
+    // Note: Ensure your DB foreign key for memories is set to "ON DELETE CASCADE"
     const { error } = await supabase
       .from('albums')
       .delete()
